@@ -18,13 +18,16 @@
 import * as posenet_module from '@tensorflow-models/posenet';
 import * as facemesh_module from '@tensorflow-models/facemesh';
 import * as tf from '@tensorflow/tfjs';
+// Add the WebGPU backend to the global backend registry.
+import '@tensorflow/tfjs-backend-webgpu';
+// Set the backend to WebGPU and wait for the module to be ready.
 import * as paper from 'paper';
 import dat from 'dat.gui';
 import Stats from 'stats.js';
-import "babel-polyfill";
+import 'babel-polyfill';
 
 import {drawKeypoints, drawPoint, drawSkeleton, isMobile, toggleLoadingUI, setStatusText} from './utils/demoUtils';
-import {SVGUtils} from './utils/svgUtils'
+import {SVGUtils} from './utils/svgUtils';
 import {PoseIllustration} from './illustrationGen/illustration';
 import {Skeleton, facePartName2Index} from './illustrationGen/skeleton';
 import {FileUtils} from './utils/fileUtils';
@@ -121,7 +124,6 @@ const guiState = {
  * Sets up dat.gui controller on the top-right of the window
  */
 function setupGui(cameras) {
-
   if (cameras.length > 0) {
     guiState.camera = cameras[0].deviceId;
   }
@@ -142,7 +144,7 @@ function setupGui(cameras) {
  * Sets up a frames per second panel on the top-left of the window
  */
 function setupFPS() {
-  stats.showPanel(0);  // 0: fps, 1: ms, 2: mb, 3+: custom
+  stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
   document.getElementById('main').appendChild(stats.dom);
 }
 
@@ -166,7 +168,7 @@ function detectPoseInRealTime(video) {
     stats.begin();
 
     let poses = [];
-   
+
     videoCtx.clearRect(0, 0, videoWidth, videoHeight);
     // Draw video
     videoCtx.save();
@@ -183,7 +185,7 @@ function detectPoseInRealTime(video) {
       decodingMethod: 'multi-person',
       maxDetections: 1,
       scoreThreshold: minPartConfidence,
-      nmsRadius: nmsRadius
+      nmsRadius: nmsRadius,
     });
 
     poses = poses.concat(all_poses);
@@ -197,8 +199,8 @@ function detectPoseInRealTime(video) {
           drawSkeleton(keypoints, minPartConfidence, keypointCtx);
         }
       });
-      faceDetection.forEach(face => {
-        Object.values(facePartName2Index).forEach(index => {
+      faceDetection.forEach((face) => {
+        Object.values(facePartName2Index).forEach((index) => {
             let p = face.scaledMesh[index];
             drawPoint(keypointCtx, p[1], p[0], 2, 'red');
         });
@@ -224,8 +226,8 @@ function detectPoseInRealTime(video) {
     }
 
     canvasScope.project.activeLayer.scale(
-      canvasWidth / videoWidth, 
-      canvasHeight / videoHeight, 
+      canvasWidth / videoWidth,
+      canvasHeight / videoHeight,
       new canvasScope.Point(0, 0));
 
     // End monitoring code for frames per second
@@ -244,10 +246,10 @@ function setupCanvas() {
     canvasHeight = canvasWidth;
     videoWidth *= 0.7;
     videoHeight *= 0.7;
-  }  
+  }
 
   canvasScope = paper.default;
-  let canvas = document.querySelector('.illustration-canvas');;
+  let canvas = document.querySelector('.illustration-canvas'); ;
   canvas.width = canvasWidth;
   canvas.height = canvasHeight;
   canvasScope.setup(canvas);
@@ -257,7 +259,7 @@ function setupCanvas() {
  * Kicks off the demo by loading the posenet model, finding and loading
  * available camera devices, and setting off the detectPoseInRealTime function.
  */
-export async function bindPage() {
+export async function main() {
   setupCanvas();
 
   toggleLoadingUI(true);
@@ -267,7 +269,7 @@ export async function bindPage() {
     outputStride: defaultStride,
     inputResolution: defaultInputResolution,
     multiplier: defaultMultiplier,
-    quantBytes: defaultQuantBytes
+    quantBytes: defaultQuantBytes,
   });
   setStatusText('Loading FaceMesh model...');
   facemesh = await facemesh_module.load();
@@ -289,14 +291,16 @@ export async function bindPage() {
 
   setupGui([], posenet);
   setupFPS();
-  
+
   toggleLoadingUI(false);
   detectPoseInRealTime(video, posenet);
 }
 
 navigator.getUserMedia = navigator.getUserMedia ||
     navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
-FileUtils.setDragDropHandler((result) => {parseSVG(result)});
+FileUtils.setDragDropHandler((result) => {
+parseSVG(result);
+});
 
 async function parseSVG(target) {
   let svgScope = await SVGUtils.importSVG(target /* SVG string or file path */);
@@ -304,5 +308,6 @@ async function parseSVG(target) {
   illustration = new PoseIllustration(canvasScope);
   illustration.bindSkeleton(skeleton, svgScope);
 }
-    
-bindPage();
+
+tf.setBackend('webgpu').then(() => main());
+
